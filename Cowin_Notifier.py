@@ -37,12 +37,16 @@ def get_availability_by_district(District_url,otp_request_header,district_id,dat
         print("\n\n\n Attempt : {}".format(attempt))
         district_resp = requests.get(District_url.format(district_id,date),headers = otp_request_header)
         if district_resp.status_code==200:
-            district_resp = district_resp.json()
-            for center in district_resp['centers']:
-                if center['sessions'][0]['available_capacity']>0:
-                    output_dict[center['center_id']] = {'Name':center['name'],'Block':center['block_name'],'PIN':center['pincode'],'Fee':center['fee_type'],'Slots':center['sessions'][0]['available_capacity'],'Vaccine':center['sessions'][0]['vaccine'],'Age':center['sessions'][0]['min_age_limit']}
-            if output_dict  != {}:
-                check_preference(output_dict,pin,vaccine,age)
+            try:
+                district_resp = district_resp.json()
+                for center in district_resp['centers']:
+                    if center['sessions'][0]['available_capacity']>0:
+                        output_dict[center['center_id']] = {'Name':center['name'],'Block':center['block_name'],'PIN':center['pincode'],'Fee':center['fee_type'],'Slots':center['sessions'][0]['available_capacity'],'Vaccine':center['sessions'][0]['vaccine'],'Age':center['sessions'][0]['min_age_limit']}
+                if output_dict  != {}:
+                    check_preference(output_dict,pin,vaccine,age)
+            except Exception as e:
+                print(e)
+                print(district_resp)
         else:
             print("Received an error when trying to access availability. This is the error code: {}".format(district_resp.status_code))
 
