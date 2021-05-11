@@ -6,6 +6,8 @@ import json
 import os
 import playsound
 import sys
+import pandas as pd
+
 
 def generate_otp(otp_request_header,generate_otp_url,validate_otp_url,secret):
     auth_token_check = input("Do you have an auth token? Yes/No: ")
@@ -31,7 +33,7 @@ def generate_otp(otp_request_header,generate_otp_url,validate_otp_url,secret):
 def get_availability_by_district(District_url,otp_request_header,district_id,date,vaccine,pin,age):
     attempt = 0
     while True:
-        output_dict = {}
+        output_list = []
         time.sleep(5)
         attempt = attempt + 1
         print("\n\n\n Attempt : {}".format(attempt))
@@ -41,9 +43,9 @@ def get_availability_by_district(District_url,otp_request_header,district_id,dat
                 district_resp = district_resp.json()
                 for center in district_resp['centers']:
                     if center['sessions'][0]['available_capacity']>0:
-                        output_dict[center['center_id']] = {'Name':center['name'],'Block':center['block_name'],'PIN':center['pincode'],'Fee':center['fee_type'],'Slots':center['sessions'][0]['available_capacity'],'Vaccine':center['sessions'][0]['vaccine'],'Age':center['sessions'][0]['min_age_limit']}
-                if output_dict  != {}:
-                    check_preference(output_dict,pin,vaccine,age)
+                        output_list.append((center['center_id'],center['name'],center['block_name'],center['pincode'],center['fee_type'],center['sessions'][0]['available_capacity'],center['sessions'][0]['vaccine'],center['sessions'][0]['min_age_limit']))
+                if output_list  != []:
+                    check_preference(output_list,pin,vaccine,age)
             except Exception as e:
                 print(e)
                 print(district_resp)
@@ -60,59 +62,47 @@ def check_availability(District_url,otp_request_header):
     age = input("Are you looking to obtain the vaccine for a certain age group? Options : 18/45/no : ")
     get_availability_by_district(District_url,otp_request_header,district_id,date,vaccine,pin,age)
 
-def check_preference(available_dict,pin,vaccine,age):
-    pin_updated = {}
-    vaccine_out = {}
-    final_out = {}
-    condition_checker = False
-    if str.lower(pin) != 'no':
-        pin = int(pin)
-        pin_list = [pin-5,pin-4,pin-3,pin-2,pin-1,pin,pin+1,pin+2,pin+3,pin+4,pin+5]
-        for pins in pin_list:
-            for k,v in available_dict.items():
-                if pins == int(v['PIN']):
-                    pin_updated[k] = available_dict[k]   
-                    condition_checker = True      
-    if str.lower(vaccine) != 'no':
-        if pin_updated == {}:
-            for k,v in available_dict.items():
-                if str.upper(vaccine) == v['Vaccine']:
-                    vaccine_out[k] = available_dict[k]
-                    condition_checker = True
-        else:    
-            for k,v in pin_updated.items():
-                if str.upper(vaccine) == v['Vaccine']:
-                    vaccine_out[k] = available_dict[k]
-                    condition_checker = True
-    if str.lower(age) != 'no':
-        age = int(age)
-        if  vaccine_out != {}:
-            for k,v in vaccine_out.items():
-                if v['Age'] == age:
-                    final_out[k] = vaccine_out[k]
-                    condition_checker = True
-        elif pin_updated != {}:
-            for k,v in pin_updated.items():
-                if v['Age'] == age:
-                    final_out[k] = vaccine_out[k]
-                    condition_checker = True
+def check_preference(base_list,pin,vaccine,age):
+    base_df = pd.DataFrame(base_list,columns=['Center_id','Name','Block','Pin','Fee','Slots','Vaccine','Age'])
+    curr_dir = os.getcwd()
+    output_df = pd.DataFrame()
+    base_query = ''
+    age_check = False
+    vaccine_check = False
+    pin_check = False
+    if age != 'no':
+        base_query = base_query + 'Age == "{}"'.format(age)
+        age_check = True
+    if vaccine != 'no':
+        vaccine_check = True
+        if age_check == True:
+            base_query = base_query + 'and Vaccine == "{}"'.format(str.upper(vaccine))
         else:
-            for k,v in available_dict.items():
-                if v['Age'] == age:
-                    final_out[k] = available_dict[k]
-                    condition_checker = True
-    if condition_checker == True:
-        if final_out != {}:
-            print(final_out)
-        elif vaccine_out != {}:
-            print(vaccine_out)
-        elif pin_updated != {}:
-            print(pin_updated)
-        curr_dir = os.getcwd()
-        playsound.playsound(curr_dir + '/Beep_Sound.wav')
-        sys.exit(0)
-    
-    
+            base_query = base_query + 'Vaccine == "{}"'.format(str.upper(vaccine))
+    if pin != 'no':
+        pin = int(pin)
+        pin_list =[pin,pin+1,pin-1,pin+2,pin-2,pin+3,pin-3,pin+4,pin-4]
+        if vaccine_check == True or age_check == True:
+            for pin in pin_list:
+                new_query = base_query
+                new_query = new_query + 'and Pin == "{}"'.format(str(pin))
+                output_df.append(base_df.query('{}'.format(new_query)))
+        else:
+            for pin in pin_list:
+                new_query = base_query
+                new_query = new_query + 'Pin =="{}"'.format(str(pin))
+                output_df.append(base_df.query('{}'.format(new_query)))
+    else:
+        if vaccine_check == True or age_check == True:
+            output_df.append(base_df.query('{}'.format(base_query)))    
+
+        else:
+            output_df = base_df
+        if output_df.empty == False:
+            playsound.playsound(curr_dir + '/Beep_Sound.wav')
+            output_df.to_csv(curr_dir+'/Available_Slots.csv')
+            sys.exit(0)
+             
 def main():
     generate_otp_url = 'https://cdn-api.co-vin.in/api/v2/auth/generateMobileOTP'
     validate_otp_url = 'https://cdn-api.co-vin.in/api/v2/auth/validateMobileOtp'

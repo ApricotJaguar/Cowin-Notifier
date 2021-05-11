@@ -114,5 +114,7 @@ dmypy.json
 .pyre/
 
 # ACTUAL IGNORE
-
 *.txt
+!requirements.txt
+*.csv
+.gitignore

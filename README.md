@@ -5,9 +5,9 @@ Cowin Notifier is a python script that can find available slots for vaccination 
 # Installation
 
 To use the script, ensure that a version of Python 3 is installed.
-Post this, run the following command to install the required dependency:
+Post this, run the following command to install the required dependencies:
 ```bash
-pip install playsound=1.2.2
+pip install -r requirements.txt
 ```
 
 All other dependencies are available upon installing python.
